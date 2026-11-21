@@ -33,12 +33,12 @@ class Image:
         try:
             img_arr = mpimg.imread(filename)
         except:
-            print("\nImage cannot be read. It could be corrupted?")
+            print("Image cannot be read. It could be corrupted?")
             sys.exit()
 
         return img_arr
 
     def greyscale(self, img_arr):
         r, g, b = img_arr[:,:,0], img_arr[:,:,1], img_arr[:,:,2]
-        gray= 0.2989 * r + 0.5870 * g + 0.1140 * b
+        gray= 0.299 * r + 0.587 * g + 0.114 * b
         return gray.astype(np.uint8)
