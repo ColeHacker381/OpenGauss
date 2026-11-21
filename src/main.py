@@ -2,7 +2,7 @@ import matplotlib.pyplot as plt
 
 from image_io import Image
 from display import Display
-from filter import Filter
+from pyramid import GaussianPyramid, LaplacianPyramid
 
 
 
@@ -22,15 +22,24 @@ def main():
     #to control display options, go to display.py
     #do not comment out display calls
     display = Display()
-    filter = Filter()
+    gaus_pyramid = GaussianPyramid(levels=5)
+    lap_pyramid = LaplacianPyramid(levels=5)
 
     grey_source_arr = get_greyscale(source=True)
     grey_target_arr = get_greyscale(source=False)
     display.greyscale(grey_source_arr, grey_target_arr)
 
-    blur_source = filter.gaus_blur(grey_source_arr)
-    blur_target = filter.gaus_blur(grey_target_arr)
-    display.blur(blur_source, blur_target)
+    source_gaus_pyramid = gaus_pyramid.build(grey_source_arr)
+    target_gaus_pyramid = gaus_pyramid.build(grey_target_arr)
+    display.pyramid(source_gaus_pyramid, target_gaus_pyramid)
+
+    source_lap_pyramid = lap_pyramid.build(source_gaus_pyramid)
+    target_lap_pyramid = lap_pyramid.build(target_gaus_pyramid)
+    display.pyramid(source_lap_pyramid, target_lap_pyramid)
+
+    source_lap_pyramid = lap_pyramid.reconstruct(source_lap_pyramid)
+    target_lap_pyramid = lap_pyramid.reconstruct(target_lap_pyramid)
+    display.pyramid(source_lap_pyramid, target_lap_pyramid)
 
 
     

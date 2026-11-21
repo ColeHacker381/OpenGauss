@@ -32,13 +32,33 @@ class Image:
     def to_array(self, filename):
         try:
             img_arr = mpimg.imread(filename)
-        except:
-            print("Image cannot be read. It could be corrupted?")
+        except (OSError, ValueError) as e:
+            print(f"Image {filename} cannot be read.")
             sys.exit()
+
+        #need to convert to normalized
+        #0-1 float values
+        original_dtype = img_arr.dtype
+        img_arr = img_arr.astype(np.float32)
+
+        if np.issubdtype(original_dtype, np.integer):
+            maximum = np.iinfo(original_dtype).max
+            img_arr /= maximum
 
         return img_arr
 
     def greyscale(self, img_arr):
+
+        #handle greyscale and unsupported images
+        if img_arr.ndim == 2:
+            return img_arr.astype(np.float32)
+        elif img_arr.ndim != 3 or img_arr.shape[2] < 3:
+            raise ValueError("Unsupported image shape.")
+
+        #if rgba, need to get rid of alpha channel
+        rgb = img_arr[:, :, :3]
+
+        #scale RGB image to greyscale using channel math conversion
         r, g, b = img_arr[:,:,0], img_arr[:,:,1], img_arr[:,:,2]
         gray= 0.299 * r + 0.587 * g + 0.114 * b
-        return gray.astype(np.uint8)
+        return gray.astype(np.float32)
