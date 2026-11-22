@@ -52,7 +52,7 @@ class GUI:
         plt.draw()
 
     def on_target_click(self, event):
-        if event.artist != self.target_artist or self.source_bounds is not None:
+        if event.inaxes != self.target_ax or self.source_bounds is None:
             return
         
         self.target_center = (event.xdata, event.ydata)
@@ -80,6 +80,7 @@ class GUI:
         )
 
         self.target_overlay = self.target_ax.add_patch(self.rect)
+        plt.draw()
 
 
     def setup_widgets(self):

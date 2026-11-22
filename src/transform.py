@@ -34,9 +34,9 @@ class Transform:
 
     def create_validity_mask(self, xs, ys, source_shape):
         height, width = source_shape
-        vx = (0 <= xs <= width - 1)
-        vy = (0 <= ys <= height - 1)
-        vmask = vx and vy
+        vx = (xs >= 0) & (xs <= width - 1)
+        vy = (ys >= 0) & (ys <= height - 1)
+        vmask = vx & vy
 
         return vmask.astype(np.float64)
 
@@ -71,7 +71,7 @@ class Transform:
 
         xs, ys = self.inverse_map(target.shape, source_center, target_center, scale)
         vmask = self.create_validity_mask(xs, ys, source.shape)
-        sample_source = self.bilinear_sample(self, source, xs, ys)
+        sample_source = self.bilinear_sample(source, xs, ys)
 
         aligned_source = target.copy()
         aligned_source[vmask] = sample_source[vmask]

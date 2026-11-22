@@ -1,12 +1,15 @@
-from gui import GUI
 from transform import Transform
 from mask import Mask
 from pyramid import GaussianPyramid, LaplacianPyramid
 
 class Blend:
 
-    def __init__(self):
-        pass
+    def __init__(self, levels=5):
+        self.gaussian = GaussianPyramid(levels)
+        self.laplacian = LaplacianPyramid(levels)
+        self.transform = Transform()
+        self.mask_generator	= Mask()
+        self.levels	= levels
 
     def blend(self, gui: GUI):
         aligned_source, validity_mask = Transform.align(
@@ -16,8 +19,8 @@ class Blend:
             gui.target_center,
             gui.scale
         )
-
-        selection_mask = Mask.create_rectangle(gui.scale_h, gui.scale_w, gui.target_bounds)
+        h, w = gui.target_image.shape
+        selection_mask = Mask.create_rectangle(h, w, gui.target_bounds)
         mask = selection_mask * validity_mask
 
         aligned_source_gaus_pyramid = GaussianPyramid.build(aligned_source)

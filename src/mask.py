@@ -8,9 +8,11 @@ class Mask:
 
     def create_rectangle(self, height, width, bounds):
         xmin, xmax, ymin, ymax = bounds
+        xmin, xmax = int(np.floor(xmin)), int(np.ceiling(xmax))
+        ymin, ymax = int(np.floor(ymin)), int(np.ceiling(ymax))
 
-        mask = np.zeros((height, width), dtype=int)
-        mask[ymin:ymax, xmin:xmax] = 1
+        mask = np.zeros((height, width), dtype=float)
+        mask[ymin:ymax, xmin:xmax] = 1.0
         return mask
 
     def create_ellipse(self, height, width, center_coords, axes):
