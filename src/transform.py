@@ -73,5 +73,9 @@ class Transform:
         vmask = self.create_validity_mask(xs, ys, source.shape)
         sample_source = self.bilinear_sample(self, source, xs, ys)
 
+        aligned_source = target.copy()
+        aligned_source[vmask] = sample_source[vmask]
+        return aligned_source, vmask
+
         
 

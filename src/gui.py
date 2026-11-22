@@ -15,6 +15,7 @@ class GUI:
         #Selection states
         self.source_bounds = None
         self.source_center = None
+        self.target_bounds = None
         self.target_center = None
         self.selection_width = None
         self.selection_height = None
@@ -59,13 +60,20 @@ class GUI:
         if self.rect is not None:
             self.rect.remove()
 
-        scale_h = self.selection_height * self.scale
-        scale_w = self.selection_width * self.scale
+        self.scale_h = self.selection_height * self.scale
+        self.scale_w = self.selection_width * self.scale
+
+        
+        xmin = event.xdata - self.scale_w/2
+        ymin = event.ydata - self.scale_h/2
+        xmax = event.xdata + self.scale_w/2
+        ymax = event.ydata + self.scale_h/2
+        self.target_bounds = (xmin, xmax, ymin, ymax)
 
         self.rect = patches.Rectangle(
-            (event.xdata - scale_w/2, event.ydata - scale_h/2), 
-            scale_w, 
-            scale_h, 
+            (xmin, ymin), 
+            self.scale_w, 
+            self.scale_h, 
             linewidth=1, 
             edgecolor='r', 
             facecolor='none'
