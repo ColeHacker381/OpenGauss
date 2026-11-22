@@ -8,8 +8,8 @@ class Mask:
 
     def create_rectangle(self, height, width, bounds):
         xmin, xmax, ymin, ymax = bounds
-        xmin, xmax = int(np.floor(xmin)), int(np.ceiling(xmax))
-        ymin, ymax = int(np.floor(ymin)), int(np.ceiling(ymax))
+        xmin, xmax = int(np.floor(xmin)), int(np.ceil(xmax))
+        ymin, ymax = int(np.floor(ymin)), int(np.ceil(ymax))
 
         mask = np.zeros((height, width), dtype=float)
         mask[ymin:ymax, xmin:xmax] = 1.0

@@ -36,9 +36,9 @@ class Transform:
         height, width = source_shape
         vx = (xs >= 0) & (xs <= width - 1)
         vy = (ys >= 0) & (ys <= height - 1)
-        vmask = vx & vy
+        vmask = vy[:, None] & vx[None, :]
 
-        return vmask.astype(np.float64)
+        return vmask
 
     def bilinear_sample(self, image, xs, ys):
         h, w = image.shape
