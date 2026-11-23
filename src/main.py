@@ -5,7 +5,17 @@ from display import Display
 from pyramid import GaussianPyramid, LaplacianPyramid
 from gui import GUI
 
-def get_greyscale(source=True):
+def get_greyscale(source: bool):
+    """
+    User chooses an image file, and it is read and converted to greyscale.
+
+    Parameters:
+        source: Sets Image as source or target.
+
+    Returns:
+        grey_img_arr: The chosen greyscaled image as a 2d array.
+    """
+
     image = Image(source)
     filename = image.choose_file()
     img_arr = image.to_array(filename)
@@ -14,7 +24,8 @@ def get_greyscale(source=True):
 
 def main():
     """
-    The main control flow of OpenGauss
+    The main control flow of OpenGauss, get
+    the greyscale image and begin the GUI.
     """
 
     grey_source_arr = get_greyscale(source=True)

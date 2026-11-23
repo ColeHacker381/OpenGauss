@@ -1,42 +1,94 @@
 import numpy as np
 
 class Filter:
+    """
+    Apply Gaussian filtering and image resampling operations.
+    """
 
     def __init__(self, k_len):
-        self.kernel = self.gaus_filter_2d(k_len)
-        self.kernel_1d = self.gaus_filter_1d(k_len)
+        self.kernel_1d = self.gaus_kernel_1d(k_len)
+        self.kernel_2d = self.gaus_kernel_2d(k_len)
 
-    def gaus_filter_1d(self, n):
+    def downsample(self, image):
+        """
+        Reduce an image by selecting every second pixel.
 
-        #error checking for positive and odd n
-        if n < 1 or n % 2 == 0:
-            raise ValueError("Kernel size must be positive and odd.")
+        Parameters:
+            image: 2D grayscale image.
 
-        half = n // 2
-        sigma = n / 6
+        Returns:
+            Image with about half the original dimensions.
+        """
 
-        coords = np.arange(-half, half + 1, dtype=np.float64)
-        kernel = np.exp(-(coords ** 2) / (2 * sigma ** 2))
+        image = np.asarray(image, dtype=np.float64)
+        downsampled = image[::2, ::2]
+        return downsampled
 
-        return kernel / kernel.sum()
+    def expand(self, image, target_w, target_h):
+        """
+        Expand an image to a target size using bilinear interpolation.
 
-    def gaus_filter_2d(self, n):
-        #error checking for positive and odd n
-        if n < 1 or n % 2 == 0:
-            raise ValueError("Kernel size must be positive and odd.")
+        The method maps destination coordinates back to the smaller
+        source image and interpolates values from four neighbors.
 
-        #works at any odd kernel
-        half = n // 2
-        sigma = n / 6
+        Parameters:
+            image: 2D grayscale image.
+            target_w: Desired output width.
+            target_h: Desired output height.
 
-        #stolen from wikipedia
-        coords = np.arange(-half, half + 1, dtype=np.float64)
-        x, y = np.meshgrid(coords, coords)
-        kernel = np.exp( -(x ** 2 + y ** 2) / (2 * sigma ** 2))
+        Returns:
+            Expanded image with the shape of (target_h, target_w).
+        """
 
-        return kernel / kernel.sum()
+        h, w = image.shape
+        image = image.astype(np.float64, copy=False)
 
+        #Map output pixels into the original image coordinates
+        ys = np.arange(target_h) / 2.0
+        xs = np.arange(target_w) / 2.0
+
+        #Clamp sampling coordinates to valid pixel boundaries
+        ys = np.clip(ys, 0, h - 1)
+        xs = np.clip(xs, 0, w - 1)
+
+        #Get the four neighboring source pixels
+        x0 = np.floor(xs).astype(int)
+        x1 = np.minimum(x0 + 1, w - 1)
+        y0 = np.floor(ys).astype(int)
+        y1 = np.minimum(y0 + 1, h - 1)
+
+        #Fractional distances allow for the interpolation weights
+        wy = (ys - y0)[:, None]
+        wx = (xs - x0)[None, :]
+
+        #Interpolate along the upper and lower rows
+        top = (
+            (1 - wx) * image[y0[:, None], x0[None, :]]
+            + wx * image[y0[:, None], x1[None, :]]
+        )
+
+        bottom = (
+            (1 - wx) * image[y1[:, None], x0[None, :]]
+            + wx * image[y1[:, None], x1[None, :]]
+        )
+
+        #Interpolate vertically to obtain the final pixel values
+        return (1 - wy) * top + wy * bottom
+    
     def gaus_blur(self, image):
+        """
+        Apply Gaussian blur using direct 2D convolution.
+
+        Uses four nested loops to evaluate each kernel position
+        for every image pixel.
+
+        Parameters:
+            image: 2D grayscale image.
+
+        Returns:
+            Gaussian blurred image with the original dimensions.
+        """
+
         image = np.asarray(image, dtype=np.float64)
         half = len(self.kernel) // 2
         h, w = image.shape
@@ -45,8 +97,12 @@ class Filter:
         for y in range(h):
             for x in range(w):
                 total = 0.0
+
+                 #Accumulate the weighted surroundings around a pixel
                 for dy in range(-half, half + 1):
                     for dx in range(-half, half + 1):
+
+                        #Recreate edge pixels at image boundaries
                         ny = min(max(y + dy, 0), h - 1)
                         nx = min(max(x + dx, 0), w - 1)
                         total += image[ny, nx] * self.kernel[dy + half, dx + half]
@@ -54,7 +110,63 @@ class Filter:
                 out[y, x] = total
         return out
 
+    def gaus_blur_fast(self, image):
+        """
+        Apply vectorized Gaussian filtering.
+
+        Uses NumPy array slicing to convolve entire rows and
+        columns at the same time, getting rid of python for loops.
+
+        Parameters:
+            image: 2D grayscale image.
+
+        Returns:
+            Gaussian blurred image with the original dimensions.
+        """
+
+        image = np.asarray(image, dtype=np.float64)
+        h, w = image.shape
+        half = len(self.kernel_1d) // 2
+
+        #Pad columns to preserve the original image dimensions
+        padded = np.pad(
+            image,
+            ((0, 0), (half, half)),
+            mode = "edge"
+        )
+
+        #Horizontal convolution using shifted array slices
+        temp = np.zeros_like(image)
+        for k, weight in enumerate(self.kernel_1d):
+            temp += weight * padded[:, k:k+w]
+
+        #Pad rows before the vertical convolution
+        padded = np.pad(
+            temp,
+            ((half, half), (0, 0)),
+            mode="edge"
+        )
+
+        #Vertical convolution using shifted array slices.
+        out = np.zeros_like(image)
+        for k, weight in enumerate(self.kernel_1d):
+            out += weight * padded[k:k+h, :]
+
+        return out
+
     def gaus_blur_seperable(self, image):
+        """
+        Apply Gaussian blur using two 1D passes.
+
+        The image is filtered horizontally and then vertically.
+        This reduces the work compared with direct 2D convolution.
+
+        Parameters:
+            image: 2D grayscale image.
+
+        Returns:
+            Gaussian blurred image with the original dimensions.
+        """
 
         image = np.asarray(image, dtype=np.float64)
         half = len(self.kernel_1d) // 2
@@ -63,6 +175,7 @@ class Filter:
         temp = np.empty_like(image)
         out = np.empty_like(image)
 
+        #Convolve each row horizontally
         for y in range(h):
             for x in range(w):
                 total = 0.0
@@ -73,6 +186,7 @@ class Filter:
 
                 temp[y, x] = total
 
+        #Convolve the intermediate image vertically
         for y in range(h):
             for x in range(w):
                 total = 0.0
@@ -84,70 +198,54 @@ class Filter:
                 out[y, x] = total
 
         return out
+    
+    def gaus_kernel_1d(self, n):
+        """
+        Generate a normalized 1D Gaussian kernel.
 
-    def gaus_blur_fast(self, image):
-        image = np.asarray(image, dtype=np.float64)
+        The standard deviation is approximated as n / 6,
+        placing approximately three standard deviations on
+        either side of the kernel center.
 
-        h, w = image.shape
-        half = len(self.kernel_1d) // 2
+        Parameters:
+            n: Positive odd kernel size.
 
-        #Horizontal vectorized pass
-        padded = np.pad(
-            image,
-            ((0, 0), (half, half)),
-            mode = "edge"
-        )
+        Returns:
+            1D Gaussian kernel whose weights sum to 1.
+        """
 
-        temp = np.zeros_like(image)
-        for k, weight in enumerate(self.kernel_1d):
-            temp += weight * padded[:, k:k+w]
+        if n < 1 or n % 2 == 0:
+            raise ValueError("Kernel size must be positive and odd.")
 
-        #Vertical vectorized pass
-        padded = np.pad(
-            temp,
-            ((half, half), (0, 0)),
-            mode="edge"
-        )
+        half = n // 2
+        sigma = n / 6
+        coords = np.arange(-half, half + 1, dtype=np.float64)
 
-        out = np.zeros_like(image)
-        for k, weight in enumerate(self.kernel_1d):
-            out += weight * padded[k:k+h, :]
+        #Compute Gaussian weights and normalize their sum to 1
+        kernel = np.exp(-(coords ** 2) / (2 * sigma ** 2))
+        return kernel / kernel.sum()
 
-        return out
+    def gaus_kernel_2d(self, n):
+        """
+        Generate a normalized 2D Gaussian kernel.
 
-    def downsample(self, image):
-        image = np.asarray(image, dtype=np.float64)
-        downsampled = image[::2, ::2]
-        return downsampled
+        Parameters:
+            n: Positive odd kernel size.
 
-    def expand(self, image, target_w, target_h):
+        Returns:
+            2D Gaussian kernel whose weights sum to 1.
+        """
 
-        h, w = image.shape
-        image = image.astype(np.float64, copy=False)
+        if n < 1 or n % 2 == 0:
+            raise ValueError("Kernel size must be positive and odd.")
 
-        # Coordinates in original image
-        ys = np.arange(target_h) / 2.0
-        xs = np.arange(target_w) / 2.0
+        half = n // 2
+        sigma = n / 6
 
-        ys = np.clip(ys, 0, h - 1)
-        xs = np.clip(xs, 0, w - 1)
-
-        x0 = np.floor(xs).astype(int)
-        x1 = np.minimum(x0 + 1, w - 1)
-        y0 = np.floor(ys).astype(int)
-        y1 = np.minimum(y0 + 1, h - 1)
-
-        wy = (ys - y0)[:, None]
-        wx = (xs - x0)[None, :]
-
-        top = (
-            (1 - wx) * image[y0[:, None], x0[None, :]]
-            + wx * image[y0[:, None], x1[None, :]]
-        )
-
-        bottom = (
-            (1 - wx) * image[y1[:, None], x0[None, :]]
-            + wx * image[y1[:, None], x1[None, :]]
-        )
-
-        return (1 - wy) * top + wy * bottom
+        #Construct a coordinate grid centered on the kernel
+        coords = np.arange(-half, half + 1, dtype=np.float64)
+        x, y = np.meshgrid(coords, coords)
+        
+        #Evaluate the 2D Gaussian function at every grid point
+        kernel = np.exp( -(x ** 2 + y ** 2) / (2 * sigma ** 2))
+        return kernel / kernel.sum()
